@@ -1,6 +1,3 @@
-oled_rotation_t oled_init_user(oled_rotation_t rotation) {
-        return OLED_ROTATION_270;  // flips the display 180 degrees if offhand
-}
 
 /* KEYBOARD PET START */
 
@@ -15,6 +12,9 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation) {
 /* timers */
 uint32_t anim_timer = 0;
 uint32_t anim_sleep = 0;
+static uint32_t oled_sleep_timer = 0;
+
+#define SLEEP_TIMEOUT 60000
 
 /* current frame */
 uint8_t current_frame = 0;
@@ -144,12 +144,14 @@ void render_prompt(void) {
     bool blink = (timer_read() % 1000) < 500;
 
     if (layer_state_is(0)) {
-        oled_write_ln_P(blink ? PSTR("> ba_") : PSTR("> ba "), false);
+        oled_write_ln_P(blink ? PSTR("> fn_") : PSTR("> fn "), false);
     } else if (layer_state_is(1)) {
         oled_write_ln_P(blink ? PSTR("> nu_") : PSTR("> nu "), false);
     } else if (layer_state_is(2)) {
         oled_write_ln_P(blink ? PSTR("> na_") : PSTR("> na "), false);
     } else if (layer_state_is(3)) {
+        oled_write_ln_P(blink ? PSTR("> ed_") : PSTR("> ed "), false);
+    } else if (layer_state_is(4)) {
         oled_write_ln_P(blink ? PSTR("> ex_") : PSTR("> ex "), false);
     } else {
         oled_write_ln_P(blink ? PSTR("> _  ") : PSTR(">    "), false);
@@ -161,7 +163,22 @@ void render_qmk_logo(void) {
     oled_write_P(font_qmk_logo, false);
 };
 
+bool process_record_user_oled(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        oled_sleep_timer = timer_read32();
+    }
+    return true;
+}
+
 static void print_display(void) {
+
+    // sleep if it has been long enough since we last got a char
+    if (timer_elapsed32(oled_sleep_timer) > SLEEP_TIMEOUT) {
+        oled_off();
+        return;
+    } else {
+        oled_on();
+    }
 
     oled_set_cursor(0, 1);
     render_qmk_logo();
@@ -186,6 +203,9 @@ void oled_task_user(void) {
     led_usb_state = host_keyboard_led_state();
 
     /* KEYBOARD PET VARIABLES END */
+        print_display();
+}
 
-    print_display();
+oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+    return OLED_ROTATION_270;  // flips the display 180 degrees if offhand
 }
